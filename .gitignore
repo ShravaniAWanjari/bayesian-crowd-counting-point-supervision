@@ -6,6 +6,12 @@ __pycache__/
 # C extensions
 *.so
 
+#venv files
+cv-bayesian/
+
+#data files
+data/
+
 # Distribution / packaging
 .Python
 build/
