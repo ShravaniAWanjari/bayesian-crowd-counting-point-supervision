@@ -27,7 +27,7 @@ def load_checkpoint(model, optimizer, path=CHECKPOINT_PATH):
         return 0
     
     print(f"Loading checkpoint from {path}...")
-    checkpoint = torch.load(path)
+    checkpoint = torch.load(path, weights_only= True)
     model.load_state_dict(checkpoint['model_state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
     start_epoch = checkpoint['epoch'] + 1
