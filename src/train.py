@@ -1,67 +1,101 @@
+import os
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
-import os
-from tqdm import tqdm
 import numpy as np
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from dataset import CrowdDataset
 from model import CrowdCounterNet
 from loss import BayesianLoss
 
+CHECKPOINT_PATH = "checkpoint.pth"
+
+def save_checkpoint(model, optimizer, epoch, loss, path=CHECKPOINT_PATH):
+    print(f"Saving checkpoint to {path}...")
+    torch.save({
+        'epoch': epoch,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'loss': loss,
+    }, path)
+    print("Checkpoint saved.")
+
+def load_checkpoint(model, optimizer, path=CHECKPOINT_PATH):
+    if not os.path.exists(path):
+        print("No checkpoint found. Starting from scratch.")
+        return 0
+    
+    print(f"Loading checkpoint from {path}...")
+    checkpoint = torch.load(path)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    start_epoch = checkpoint['epoch'] + 1
+    print(f"Checkpoint loaded. Resuming training from epoch {start_epoch}.")
+    return start_epoch
+
 def train_model(root_dir, num_epochs=100, learning_rate=1e-5):
 
-    device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
-
 
     BATCH_SIZE = 1
 
-    train_dataset = CrowdDataset(root_dir = root_dir, subset='Train')
+    train_dataset = CrowdDataset(root_dir=root_dir, subset='Train')
     train_loader = DataLoader(
-        train_dataset, 
+        train_dataset,
         batch_size=BATCH_SIZE,
         shuffle=True,
         num_workers=os.cpu_count()
     )
 
-    model =  CrowdCounterNet(pretrained=True).to(device)
-
-    loss_fn = BayesianLoss().to(device)
+    model = CrowdCounterNet(pretrained=True).to(device)
     
-    optimizer = torch.optim.Adam(model.parameters(), lr = learning_rate)
+    crop_size = 512
+    d_param = 0.15 * crop_size
+    loss_fn = BayesianLoss(d=d_param).to(device)
+    
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+    start_epoch = load_checkpoint(model, optimizer)
 
     model.train()
-    for epoch in range(num_epochs):
+    for epoch in range(start_epoch, num_epochs):
         epoch_loss = 0.0
-
-        pbar = tqdm(train_loader, desc=f'Epoch {epoch+1}/{num_epochs}')
-
-        for i, (image, points) in enumerate(train_loader):
+        
+        pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs}")
+        
+        for images, points in pbar:
             images = images.to(device)
             points = points[0].to(device)
-
+            
             optimizer.zero_grad()
 
             pred_density = model(images)
-
+            
             loss = loss_fn(pred_density, points)
 
-            loss.backwards()
-
+            loss.backward()
+            
             optimizer.step()
-
+            
             epoch_loss += loss.item()
+            
+            pbar.set_postfix(loss=loss.item())
 
-            pbar.set_postfix(loss = loss.item())
-        avg_loss = epoch_loss/len(train_loader)
-        print(f'Epoch [{epoch+1}/{num_epochs}], Average Loss: {avg_loss:.4f}')
+        avg_loss = epoch_loss / len(train_loader)
+        print(f"Epoch [{epoch+1}/{num_epochs}], Average Loss: {avg_loss:.4f}")
+        
+        if (epoch + 1) % 5 == 0:
+            save_checkpoint(model, optimizer, epoch, avg_loss)
 
-    print("Training Finished")
+    print("Training finished!")
+    save_checkpoint(model, optimizer, num_epochs - 1, avg_loss)
     return model
 
 def evaluate_model(model, root_dir, subset='Test'):
-    device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
     model.eval()
 
@@ -69,8 +103,8 @@ def evaluate_model(model, root_dir, subset='Test'):
     test_loader = DataLoader(
         test_dataset,
         batch_size=1,
-        shuffle = False,
-        num_workers = os.cpu_count()
+        shuffle=False,
+        num_workers=os.cpu_count()
     )
 
     mae = 0.0
@@ -79,25 +113,28 @@ def evaluate_model(model, root_dir, subset='Test'):
 
     print("Starting evaluation...")
     with torch.no_grad():
-        for i, (images, points) in enumerate(tqdm(test_loader, desc='Evaluating')):
+        for i, (images, points) in enumerate(tqdm(test_loader, desc="Evaluating")):
             images = images.to(device)
+            
             pred_density = model(images)
-
+            
             estimated_count = torch.sum(pred_density).item()
-
+            
             ground_truth_count = points[0].size(0)
-
+            
             mae += abs(estimated_count - ground_truth_count)
             mse += (estimated_count - ground_truth_count)**2
 
-        mae = mae / total_images
-        mse = np.sqrt(mse/total_images)
+    mae = mae / total_images
+    mse = np.sqrt(mse / total_images)
 
-        print(f"Evaluation complete. MAE : {mae:.2f}, MSE:{mse:.2f}")
-        return mae, mse
+    print(f"Evaluation complete. MAE: {mae:.2f}, MSE: {mse:.2f}")
+    return mae, mse
 
 if __name__ == '__main__':
-
     dataset_root = 'data/UCF-QNRF_ECCV18'
-    trained_model = train_model(root_dir='data/UCF-QNRF_ECCV18', num_epochs=10)
+    
+    trained_model = train_model(root_dir=dataset_root, num_epochs=10)
+    
     evaluate_model(trained_model, root_dir=dataset_root)
+

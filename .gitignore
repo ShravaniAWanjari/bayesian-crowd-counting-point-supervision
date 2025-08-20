@@ -12,6 +12,9 @@ cv-bayesian/
 #data files
 data/
 
+#checkpoints
+src/checkpoint.pth
+
 # Distribution / packaging
 .Python
 build/

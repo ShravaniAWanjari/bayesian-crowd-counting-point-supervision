@@ -5,7 +5,9 @@ import torch.nn.functional as F
 
 class CrowdCounterNet(nn.Module):
     def __init__(self, pretrained=True):
-        super(CrowdCounterNet, self)
+
+        super(CrowdCounterNet, self).__init__() 
+
         vgg = vgg19(weights='VGG19_Weights.DEFAULT' if pretrained else None)
 
         self.backbone = vgg.features[:35]
@@ -18,11 +20,9 @@ class CrowdCounterNet(nn.Module):
             nn.Conv2d(in_channels=128, out_channels=1, kernel_size=1)
         )
 
-    def forward(self,x):
+    def forward(self, x):
+
         x = self.backbone(x)
-
-        x = F.interpolate(x, scale_factor=2, model='bilinear', align_corners = False)
-        density_map  =self.regression_header(x)
-
+        x = F.interpolate(x, scale_factor=2, mode='bilinear', align_corners=False)
+        density_map = self.regression_header(x)
         return density_map
-    
