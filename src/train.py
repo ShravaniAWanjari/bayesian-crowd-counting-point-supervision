@@ -134,7 +134,7 @@ def evaluate_model(model, root_dir, subset='Test'):
 if __name__ == '__main__':
     dataset_root = 'data/UCF-QNRF_ECCV18'
     
-    trained_model = train_model(root_dir=dataset_root, num_epochs=10)
+    trained_model = train_model(root_dir=dataset_root, num_epochs=50)
     
     evaluate_model(trained_model, root_dir=dataset_root)
 
