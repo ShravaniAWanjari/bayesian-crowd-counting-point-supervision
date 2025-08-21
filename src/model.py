@@ -15,8 +15,10 @@ class CrowdCounterNet(nn.Module):
         self.regression_header = nn.Sequential(
             nn.Conv2d(in_channels=512, out_channels=256, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
+            nn.Dropout2d(p=0.5),
             nn.Conv2d(in_channels=256, out_channels=128, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
+            nn.Dropout2d(p=0.5),
             nn.Conv2d(in_channels=128, out_channels=1, kernel_size=1)
         )
 
