@@ -26,7 +26,16 @@ class EarlyStopping:
 
         if self.best_score is None:
             self.best_score = score
-        elif score < self.best_score + self.delta
+        elif score < self.best_score + self.delta:
+            self.counter += 1
+            if self.verbose:
+                print(f'Early Stopping counter : {self.counter} out of {self.patience}')
+            if self.counter >= self.patience:
+                self.early_stop = True
+        else:
+            self.best_score = score
+            self.counter = 0
+    
 
 def save_checkpoint(model, optimizer, epoch, loss, path=CHECKPOINT_PATH):
     print(f"Saving checkpoint to {path}...")
@@ -151,7 +160,7 @@ def evaluate_model(model, root_dir, subset='Test'):
 if __name__ == '__main__':
     dataset_root = 'data/UCF-QNRF_ECCV18'
     
-    trained_model = train_model(root_dir=dataset_root, num_epochs=50)
+    trained_model = train_model(root_dir=dataset_root, num_epochs=105)
     
     evaluate_model(trained_model, root_dir=dataset_root)
 
