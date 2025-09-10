@@ -9,11 +9,13 @@ __pycache__/
 #venv files
 cv-bayesian/
 
+
 #data files
 data/
+best_model.pth
 
 #checkpoints
-src/checkpoint.pth
+checkpoint.pth
 
 # Distribution / packaging
 .Python
